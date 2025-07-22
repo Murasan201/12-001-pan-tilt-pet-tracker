@@ -1,0 +1,21 @@
+# Environment variables
+.env
+
+# Sample test images (do not upload to GitHub)
+test_images/
+
+# Slack captures
+slack_captures/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
