@@ -26,12 +26,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from modules.simple_p_controller import (
-    SimpleProportionalController, 
-    DualSimplePController,
+    SimpleProportionalController,
     SimplePStatus,
     SimplePError,
-    create_simple_p_controller,
-    create_dual_simple_p_controller
+    create_simple_p_controller
 )
 
 
@@ -219,55 +217,6 @@ class TestSimpleProportionalController(unittest.TestCase):
                 self.assertEqual(self.controller.status, SimplePStatus.ERROR)
 
 
-class TestDualSimplePController(unittest.TestCase):
-    """DualSimplePControllerクラスのテスト"""
-    
-    def setUp(self):
-        """テスト前の準備"""
-        logging.getLogger().setLevel(logging.WARNING)
-        self.dual_controller = DualSimplePController()
-    
-    def tearDown(self):
-        """テスト後のクリーンアップ"""
-        self.dual_controller.cleanup()
-    
-    def test_dual_initialization(self):
-        """デュアル制御器初期化テスト"""
-        self.assertIsNotNone(self.dual_controller.controller)
-        self.assertEqual(self.dual_controller.controller.name, "DualSimpleP")
-    
-    def test_dual_update(self):
-        """デュアル制御器更新テスト"""
-        correction = self.dual_controller.update((400, 300))
-        
-        # 期待値計算
-        expected_pan = 80 * 0.0156   # 1.248度
-        expected_tilt = -60 * 0.0208  # -1.248度
-        
-        self.assertAlmostEqual(correction[0], expected_pan, places=3)
-        self.assertAlmostEqual(correction[1], expected_tilt, places=3)
-    
-    def test_dual_bbox_update(self):
-        """デュアル制御器バウンディングボックス更新テスト"""
-        bbox = (350, 280, 450, 360)  # 中心(400, 320)
-        correction = self.dual_controller.update_from_bbox(bbox)
-        
-        # 期待値計算（中心座標から）
-        expected_pan = 80 * 0.0156    # 1.248度
-        expected_tilt = -80 * 0.0208  # -1.664度
-        
-        self.assertAlmostEqual(correction[0], expected_pan, places=3)
-        self.assertAlmostEqual(correction[1], expected_tilt, places=3)
-    
-    def test_dual_statistics(self):
-        """デュアル制御器統計テスト"""
-        # 複数回更新
-        for i in range(5):
-            self.dual_controller.update((350 + i*10, 280 + i*10))
-        
-        stats = self.dual_controller.get_statistics()
-        self.assertEqual(stats['total_corrections'], 5)
-
 
 class TestFactoryFunctions(unittest.TestCase):
     """ファクトリ関数のテスト"""
@@ -288,17 +237,6 @@ class TestFactoryFunctions(unittest.TestCase):
         
         controller.cleanup()
     
-    def test_create_dual_simple_p_controller(self):
-        """デュアルSimple P制御器ファクトリ関数テスト"""
-        dual_controller = create_dual_simple_p_controller(
-            image_width=800,
-            image_height=600
-        )
-        
-        self.assertEqual(dual_controller.controller.image_width, 800)
-        self.assertEqual(dual_controller.controller.image_height, 600)
-        
-        dual_controller.cleanup()
 
 
 class TestIntegrationScenarios(unittest.TestCase):
@@ -377,7 +315,6 @@ def run_all_tests():
     
     # テストクラスの追加
     suite.addTests(loader.loadTestsFromTestCase(TestSimpleProportionalController))
-    suite.addTests(loader.loadTestsFromTestCase(TestDualSimplePController))
     suite.addTests(loader.loadTestsFromTestCase(TestFactoryFunctions))
     suite.addTests(loader.loadTestsFromTestCase(TestIntegrationScenarios))
     

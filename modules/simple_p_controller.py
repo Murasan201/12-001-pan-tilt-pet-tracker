@@ -522,14 +522,6 @@ if __name__ == "__main__":
         print(f"BBox {i+1}: {bbox} -> Center=({center_x:.1f}, {center_y:.1f}) -> "
               f"Correction=({correction[0]:6.2f}, {correction[1]:6.2f})")
     
-    # デュアルSimple Pテスト
-    print("\n--- デュアルSimple P制御テスト ---")
-    dual_simple_p = DualSimplePController()
-    
-    for i, (x, y) in enumerate(test_cases[:5]):  # 最初の5ケースをテスト
-        correction = dual_simple_p.update((x, y))
-        print(f"Dual {i+1}: ({x:3d}, {y:3d}) -> Correction=({correction[0]:6.2f}, {correction[1]:6.2f})")
-    
     # 統計情報表示
     print("\n--- 統計情報 ---")
     stats = simple_p.get_performance_statistics()
@@ -538,12 +530,6 @@ if __name__ == "__main__":
           f"平均誤差X={recent_perf.get('mean_error_x', 0):.1f}pixel, "
           f"平均誤差Y={recent_perf.get('mean_error_y', 0):.1f}pixel")
     
-    dual_stats = dual_simple_p.get_statistics()
-    dual_recent = dual_stats.get('recent_performance', {})
-    print(f"Dual Simple P統計: 補正回数={dual_stats.get('total_corrections', 0)}, "
-          f"不感帯率={dual_recent.get('deadband_rate', 0):.1%}")
-    
     # クリーンアップ
     simple_p.cleanup()
-    dual_simple_p.cleanup()
     print("\nテスト終了")

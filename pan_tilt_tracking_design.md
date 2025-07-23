@@ -13,9 +13,9 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 
 ### 1.2 設計方針
 - 既存の実装済みコンポーネント（`servo_test.py`, `camera_detection_test.py`）を最大限活用
-- PIDコントローラーによる安定した追跡制御
-- シンプルで保守性の高いアーキテクチャ
-- リアルタイム性能の確保
+- Simple P制御による分かりやすい追跡制御
+- 初心者にも理解しやすいシンプルなアーキテクチャ
+- 安定性と教育効果を重視した設計
 
 ---
 
@@ -55,7 +55,7 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 - 安全範囲内での動作保証
 
 #### 2.2.4 トラッキング制御モジュール (`TrackingController`)
-- Simple P制御による追跡制御（PID制御も選択可能）
+- Simple P制御による分かりやすい追跡制御
 - 対象の中心座標計算
 - パン・チルト角度の計算と補正
 
@@ -65,42 +65,26 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 
 ### 3.1 制御方式の選定
 
-#### 3.1.1 制御方式の比較検討
+#### 3.1.1 Simple P制御の採用
 
-本システムでは以下の制御方式を検討した：
-
-**PID制御**
-- **利点**: 高精度、理論的完全性、豊富な調整パラメータ
-- **課題**: Raspberry Pi Python環境での制御周期不安定性
-- **適用**: 高精度かつ高速応答が必要な用途
-
-**Simple P制御**
-- **利点**: 実装簡潔、実証済み実績、デバッグ容易
-- **制約**: 定常偏差、オーバーシュート発生可能性
-- **適用**: 一般的な追跡用途、教育・実証段階
-
-#### 3.1.2 Simple P制御の採用決定
-
-本ペット見守りシステムでは**Simple P制御を主要方式として採用**する。
+本ペット見守りシステムでは**Simple P制御（比例制御）を採用**する。
 
 **採用理由：**
 
-**1. 用途適合性**
+**1. 初心者向け教育効果**
+- **理解のしやすさ**: 「誤差 × ゲイン = 補正量」というシンプルな計算
+- **直感的な動作**: 目標から離れるほど大きく補正する分かりやすい制御
+- **少ないパラメータ**: 調整が必要なのは1つのゲイン値のみ
+- **デバッグの容易さ**: 動作が予測しやすく問題の特定が簡単
+
+**2. 用途適合性**
 - **低頻度動作**: 数分～数十分間隔での位置補正が主目的
 - **静止画撮影**: 高速な連続追跡ではなく適切な画角への調整
-- **見守り用途**: 高精度よりも確実性と安定性を重視
-- **教育効果**: 制御理論の理解が容易で初心者にも分かりやすい
+- **見守り用途**: 複雑な制御よりも確実性と安定性を重視
 
-**2. 技術的優位性**
-- **制御周期問題の回避**: Python/Raspberry Pi環境でのタイミング不安定性を回避
-- **実証済み実装**: 一般的なパン・チルト追跡システムでの成功実績
+**3. 技術的優位性**
 - **実装の簡潔性**: 約10行のコードで実装可能
-- **デバッグ容易性**: 動作が直感的で問題特定が簡単
 - **計算負荷軽減**: Raspberry Piのリソースを効率的に活用
-
-**3. 運用上の利点**
-- **メンテナンス性**: パラメータ調整が簡単（Kpのみ）
-- **拡張性**: 必要に応じてPID制御への移行も可能
 - **安全性**: 予期しない振動や発散が起こりにくい
 
 ### 3.2 Simple P制御アルゴリズム
@@ -231,55 +215,29 @@ def control_to_angle(control_output, max_angle=90):
     return angle
 ```
 
-### 3.4 PID制御との比較・共存設計
+### 3.4 制御の特徴と制限
 
-#### 3.4.1 制御方式選択機能
+#### 3.4.1 Simple P制御の特徴
 
-システム設計上、Simple P制御とPID制御の両方を実装し、用途に応じて選択可能とする：
+**利点:**
+- **分かりやすさ**: 比例関係の単純な計算
+- **安定性**: 発散しにくく安全
+- **調整の簡単さ**: ゲイン1つだけの調整
+- **学習効果**: 制御の基本原理が理解できる
 
-```python
-class TrackingController:
-    def __init__(self, control_mode="simple_p"):
-        self.control_mode = control_mode
-        
-        if control_mode == "simple_p":
-            self.controller = SimpleProportionalController()
-        elif control_mode == "pid":
-            self.controller = DualPIDController()
-```
+**制限:**
+- **定常偏差**: 完全に中央に合わせることが困難な場合がある
+- **応答特性**: 微調整には時間がかかる
+- **外乱対応**: 風などの外乱には弱い
 
-#### 3.4.2 適用場面の使い分け
+#### 3.4.2 ペット見守りでの適用
 
-**Simple P制御推奨:**
-- ペット見守り（本プロジェクト）
-- 教育・学習用途
-- プロトタイプ・実証段階
-- 低頻度動作アプリケーション
+本システムでは以下の理由でSimple P制御が最適：
 
-**PID制御推奨:**
-- 高精度追跡が必要な場合
-- 連続的な動体追跡
-- 外乱の多い環境
-- 性能最適化フェーズ
-
-#### 3.4.3 PIDパラメータ参考値（拡張用）
-
-将来的にPID制御に移行する場合の参考値：
-
-```python
-# 保守的な初期パラメータ（安定性重視）
-PAN_PID_PARAMS = {
-    'kP': 0.8,
-    'kI': 0.1,
-    'kD': 0.05
-}
-
-TILT_PID_PARAMS = {
-    'kP': 0.8,
-    'kI': 0.1,
-    'kD': 0.05
-}
-```
+- **目的**: 完璧な追跡よりも「だいたい画面に入る」ことが重要
+- **頻度**: 数分おきの調整で十分
+- **学習**: 制御の基本を理解する教育効果
+- **保守**: トラブル時の原因特定が容易
 
 ---
 
@@ -444,94 +402,79 @@ def set_confidence_threshold(self, threshold: float) -> None:
 ]
 ```
 
-### 4.4 PIDController クラス仕様
+### 4.4 SimpleProportionalController クラス仕様
 
 #### 4.4.1 概要
-- **目的**: PID制御による追跡制御の実装
-- **責務**: 誤差から補正角度の計算
-- **特徴**: パン・チルト独立制御対応
+- **目的**: Simple P制御による分かりやすい追跡制御の実装
+- **責務**: 誤差から補正角度の直接計算
+- **特徴**: 初心者にも理解しやすいシンプルな実装
 
 #### 4.4.2 クラス定義
 ```python
-class PIDController:
+class SimpleProportionalController:
     def __init__(self, 
-                 kP: float = 1.0, 
-                 kI: float = 0.0, 
-                 kD: float = 0.0,
-                 output_limits: tuple = (-90, 90),
-                 sample_time: float = 0.01):
+                 image_width: int = 640,
+                 image_height: int = 480,
+                 pan_gain: float = 0.0156,
+                 tilt_gain: float = 0.0208,
+                 max_correction: float = 15.0,
+                 deadband: float = 5.0):
         """
-        PIDコントローラー初期化
+        Simple P制御器初期化
         
         Args:
-            kP: 比例ゲイン
-            kI: 積分ゲイン
-            kD: 微分ゲイン
-            output_limits: 出力制限（度）
-            sample_time: サンプリング時間（秒）
+            image_width: 画像幅（pixel）
+            image_height: 画像高さ（pixel）
+            pan_gain: パン制御ゲイン
+            tilt_gain: チルト制御ゲイン
+            max_correction: 1回の最大補正角度（度）
+            deadband: 不感帯（pixel）
         """
 ```
 
 #### 4.4.3 主要メソッド
 ```python
-def update(self, error: float) -> float:
+def calculate_correction(self, detection_center: tuple) -> tuple:
     """
-    PID制御更新
+    検出中心から角度補正値を計算
     
     Args:
-        error: 制御誤差
+        detection_center: 検出対象の中心座標 (x, y)
         
     Returns:
-        control_output: 制御出力（角度補正値）
+        tuple: (pan_correction, tilt_correction) 角度補正値（度）
     """
     
+def calculate_tracking_error(self, detection_bbox: tuple) -> tuple:
+    """バウンディングボックスから制御誤差を計算"""
+    
+def set_gains(self, pan_gain: float, tilt_gain: float) -> None:
+    """制御ゲインの動的変更"""
+    
+def get_parameters(self) -> dict:
+    """制御パラメータの取得"""
+    
 def reset(self) -> None:
-    """PID内部状態のリセット"""
-    
-def set_parameters(self, kP: float, kI: float, kD: float) -> None:
-    """PIDパラメータの動的変更"""
-    
-def set_output_limits(self, min_output: float, max_output: float) -> None:
-    """出力制限の設定"""
-    
-def get_components(self) -> dict:
-    """P、I、D各成分の取得（デバッグ用）"""
-    
-def is_stable(self, tolerance: float = 1.0) -> bool:
-    """制御安定性の判定"""
+    """制御器状態のリセット"""
 ```
 
 #### 4.4.4 制御アルゴリズム詳細
 ```python
-# PID制御式の実装
-def update(self, error: float) -> float:
-    current_time = time.time()
-    delta_time = current_time - self.prev_time
+# Simple P制御の実装（とてもシンプル！）
+def calculate_correction(self, detection_center):
+    # 1. 誤差を計算
+    x_error = detection_center[0] - self.image_center[0]
+    y_error = detection_center[1] - self.image_center[1]
     
-    # P項: 現在の誤差に比例
-    self.proportional = self.kP * error
+    # 2. 比例制御で補正量を計算
+    pan_correction = x_error * self.pan_gain
+    tilt_correction = -y_error * self.tilt_gain  # Y軸反転
     
-    # I項: 誤差の積分（定常偏差除去）
-    self.integral += error * delta_time
-    self.integral = np.clip(self.integral, -self.integral_limit, self.integral_limit)
-    integral_term = self.kI * self.integral
+    # 3. 安全のため補正量を制限
+    pan_correction = np.clip(pan_correction, -15, 15)
+    tilt_correction = np.clip(tilt_correction, -15, 15)
     
-    # D項: 誤差の微分（オーバーシュート抑制）
-    if delta_time > 0:
-        self.derivative = (error - self.prev_error) / delta_time
-    else:
-        self.derivative = 0
-    derivative_term = self.kD * self.derivative
-    
-    # 制御出力の計算
-    output = self.proportional + integral_term + derivative_term
-    output = np.clip(output, self.output_limits[0], self.output_limits[1])
-    
-    # 状態更新
-    self.prev_error = error
-    self.prev_time = current_time
-    
-    return output
+    return (pan_correction, tilt_correction)
 ```
 
 ### 4.5 TrackingCoordinator クラス仕様
@@ -546,8 +489,7 @@ class TrackingCoordinator:
     def __init__(self,
                  servo_controller: ServoController,
                  yolo_detector: YOLODetector,
-                 pan_pid: PIDController,
-                 tilt_pid: PIDController):
+                 simple_p_controller: SimpleProportionalController):
         """統合制御クラス初期化"""
 ```
 
@@ -586,7 +528,7 @@ def get_system_status(self) -> dict:
                      ↓
 検出結果 → TrackingCoordinator.process_frame() → 制御判定
                      ↓
-制御判定 → PIDController.update() → 角度補正値
+制御判定 → SimpleProportionalController.calculate_correction() → 角度補正値
                      ↓
 角度補正値 → ServoController.set_angles() → サーボ制御
 ```
@@ -614,12 +556,12 @@ def test_confidence_filtering()        # 信頼度フィルタリングテスト
 def test_coordinate_calculation()      # 座標計算テスト
 ```
 
-#### 4.7.3 PIDController テスト
+#### 4.7.3 SimpleProportionalController テスト
 ```python
-def test_pid_calculation()             # PID計算テスト
-def test_parameter_tuning()            # パラメータ調整テスト
-def test_output_limits()              # 出力制限テスト
-def test_stability_detection()         # 安定性判定テスト
+def test_simple_p_calculation()       # Simple P計算テスト
+def test_gain_adjustment()             # ゲイン調整テスト
+def test_correction_limits()           # 補正制限テスト
+def test_deadband_functionality()      # 不感帯機能テスト
 ```
 
 ---
@@ -631,7 +573,7 @@ def test_stability_detection()         # 安定性判定テスト
 #### 5.1.1 追跡モード (TRACKING)
 - **条件**: 犬または猫が検出された場合
 - **動作**: 検出対象を画面中央に維持するよう追跡
-- **制御**: PIDコントローラーによる連続制御
+- **制御**: Simple P制御による分かりやすい制御
 
 #### 5.1.2 スキャンモード (SCANNING)
 - **条件**: 検出対象が見つからない場合
@@ -681,16 +623,16 @@ def test_stability_detection()         # 安定性判定テスト
 ## 7. 実装計画
 
 ### 7.1 Phase 1: 基本統合 (1週間)
-- [ ] PIDコントローラークラス実装
+- [x] Simple P制御コントローラークラス実装
 - [ ] TrackingControllerクラス実装  
 - [ ] 既存モジュールの統合
 - [ ] 基本的な追跡機能の動作確認
 
 ### 7.2 Phase 2: 制御調整 (1週間)  
-- [ ] PIDパラメータの調整とチューニング
+- [ ] Simple P制御ゲインの調整とチューニング
 - [ ] スキャンモードの実装
 - [ ] モード遷移ロジックの実装
-- [ ] パフォーマンス最適化
+- [ ] 動作の安定化
 
 ### 7.3 Phase 3: 機能拡張 (1週間)
 - [ ] Slack通知機能の統合
@@ -731,7 +673,7 @@ def test_stability_detection()         # 安定性判定テスト
 
 | リスク | 影響度 | 発生確率 | 対策 |
 |--------|--------|----------|------|
-| PIDパラメータ調整困難 | 高 | 中 | 段階的調整手順の確立、シミュレーション活用 |
+| ゲインパラメータ調整困難 | 低 | 中 | 段階的調整手順の確立、テスト環境での確認 |
 | リアルタイム性能不足 | 高 | 中 | プロファイリング、最適化、解像度調整 |
 | サーボ精度不足 | 中 | 低 | キャリブレーション、フィードバック制御 |
 | 検出精度不安定 | 中 | 中 | 複数フレーム判定、信頼度フィルタリング |
