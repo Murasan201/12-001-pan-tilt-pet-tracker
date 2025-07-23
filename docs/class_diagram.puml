@@ -1,14 +1,14 @@
-@startuml ペット追跡システム_クラス図
+@startuml pet_tracking_system
 
-!define BUSINESS_COLOR #E1F5FE
-!define CONTROLLER_COLOR #F3E5F5
-!define DATA_COLOR #FFF3E0
-!define ENUM_COLOR #E8F5E8
+!define BUSINESS_COLOR E1F5FE
+!define CONTROLLER_COLOR F3E5F5
+!define DATA_COLOR FFF3E0
+!define ENUM_COLOR E8F5E8
 
 title パン・チルトAI追跡カメラ システム クラス図
 
 package "メインアプリケーション" {
-    class PetTrackingApp BUSINESS_COLOR {
+    class PetTrackingApp #BUSINESS_COLOR {
         - tracker: TrackingCoordinator
         - is_running: bool
         - logger: Logger
@@ -23,7 +23,7 @@ package "メインアプリケーション" {
 }
 
 package "統合制御" {
-    class TrackingCoordinator CONTROLLER_COLOR {
+    class TrackingCoordinator #CONTROLLER_COLOR {
         - camera_id: int
         - image_width: int
         - image_height: int
@@ -42,7 +42,7 @@ package "統合制御" {
         + stop_tracking(): void
         + get_system_status(): Dict
         - _main_loop(): void
-        - _process_detection(frame): List[Dict]
+        - _process_detection(frame): "List<Dict>"
         - _update_tracking_control(detections): void
         - _execute_scan_pattern(): void
         - _create_display_frame(frame, detections): ndarray
@@ -50,20 +50,20 @@ package "統合制御" {
         - _cleanup_resources(): void
     }
     
-    enum TrackingMode ENUM_COLOR {
+    enum TrackingMode #ENUM_COLOR {
         STANDBY
         SCANNING  
         TRACKING
     }
     
-    class SystemStatus DATA_COLOR {
+    class SystemStatus #DATA_COLOR {
         + mode: TrackingMode
         + target_detected: bool
         + target_class: str
         + target_confidence: float
         + pan_angle: float
         + tilt_angle: float
-        + correction_applied: Tuple[float, float]
+        + correction_applied: "Tuple<float, float>"
         + last_detection_time: datetime
         + total_detections: int
         + tracking_duration: float
@@ -71,13 +71,13 @@ package "統合制御" {
 }
 
 package "制御モジュール" {
-    class ServoController CONTROLLER_COLOR {
+    class ServoController #CONTROLLER_COLOR {
         - i2c_address: int
         - pwm_frequency: int
         - pan_channel: int
         - tilt_channel: int
-        - pan_range: Tuple[int, int]
-        - tilt_range: Tuple[int, int]
+        - pan_range: "Tuple<int, int>"
+        - tilt_range: "Tuple<int, int>"
         - current_pan_angle: float
         - current_tilt_angle: float
         - i2c: I2C
@@ -89,7 +89,7 @@ package "制御モジュール" {
         + set_pan_angle(angle): bool
         + set_tilt_angle(angle): bool
         + set_angles(pan_angle, tilt_angle): bool
-        + get_current_angles(): Tuple[float, float]
+        + get_current_angles(): "Tuple<float, float>"
         + move_to_center(): bool
         + test_movement(): bool
         + is_angle_safe(pan, tilt): bool
@@ -99,10 +99,10 @@ package "制御モジュール" {
         - _validate_angle(angle, axis): bool
     }
     
-    class SimpleProportionalController CONTROLLER_COLOR {
+    class SimpleProportionalController #CONTROLLER_COLOR {
         - image_width: int
         - image_height: int
-        - image_center: Tuple[int, int]
+        - image_center: "Tuple<int, int>"
         - pan_gain: float
         - tilt_gain: float
         - max_correction: float
@@ -110,10 +110,10 @@ package "制御モジュール" {
         - name: str
         - state: SimplePState
         - status: SimplePStatus
-        - performance_history: List[Dict]
+        - performance_history: "List<Dict>"
         
-        + calculate_correction(detection_center): Tuple[float, float]
-        + calculate_tracking_error(detection_bbox): Tuple[float, float]
+        + calculate_correction(detection_center): "Tuple<float, float>"
+        + calculate_tracking_error(detection_bbox): "Tuple<float, float>"
         + set_gains(pan_gain, tilt_gain): void
         + set_max_correction(max_correction): void
         + set_deadband(deadband): void
@@ -124,62 +124,62 @@ package "制御モジュール" {
         + cleanup(): void
     }
     
-    enum SimplePStatus ENUM_COLOR {
+    enum SimplePStatus #ENUM_COLOR {
         UNINITIALIZED
         READY
         RUNNING
         ERROR
     }
     
-    class SimplePState DATA_COLOR {
-        + last_error: Tuple[float, float]
-        + last_output: Tuple[float, float]
+    class SimplePState #DATA_COLOR {
+        + last_error: "Tuple<float, float>"
+        + last_output: "Tuple<float, float>"
         + last_update_time: float
         + total_corrections: int
     }
 }
 
 package "検出モジュール" {
-    class YOLODetector CONTROLLER_COLOR {
+    class YOLODetector #CONTROLLER_COLOR {
         - model_path: str
         - confidence_threshold: float
-        - target_classes: List[int]
-        - image_size: Tuple[int, int]
+        - target_classes: "List<int>"
+        - image_size: "Tuple<int, int>"
         - model: YOLO
-        - class_names: Dict[int, str]
+        - class_names: "Dict<int, str>"
         - detection_count: int
         - total_inference_time: float
         
         + load_model(): bool
-        + detect_pets(frame): List[Dict]
+        + detect_pets(frame): "List<Dict>"
         + get_best_detection(detections): Dict
-        + calculate_center(bbox): Tuple[float, float]
-        + calculate_tracking_error(detection, image_center): Tuple[float, float]
+        + calculate_center(bbox): "Tuple<float, float>"
+        + calculate_tracking_error(detection, image_center): "Tuple<float, float>"
         + draw_detections(frame, detections): ndarray
         + get_detection_statistics(): Dict
         + set_confidence_threshold(threshold): void
         + cleanup(): void
-        - _filter_target_classes(results): List[Dict]
+        - _filter_target_classes(results): "List<Dict>"
         - _format_detection(result): Dict
     }
     
-    class Detection DATA_COLOR {
+    class Detection #DATA_COLOR {
         + class_id: int
         + class_name: str
         + confidence: float
-        + bbox: Tuple[float, float, float, float]
-        + center: Tuple[float, float] = (0.0, 0.0)
+        + bbox: "Tuple<float, float, float, float>"
+        + center: "Tuple<float, float>" = (0.0, 0.0)
     }
 }
 
 package "例外クラス" {
-    class ServoControllerError ENUM_COLOR {
+    class ServoControllerError #ENUM_COLOR {
     }
     
-    class YOLODetectorError ENUM_COLOR {
+    class YOLODetectorError #ENUM_COLOR {
     }
     
-    class SimplePError ENUM_COLOR {
+    class SimplePError #ENUM_COLOR {
     }
 }
 
