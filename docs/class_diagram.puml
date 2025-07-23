@@ -1,0 +1,237 @@
+@startuml ペット追跡システム_クラス図
+
+!define BUSINESS_COLOR #E1F5FE
+!define CONTROLLER_COLOR #F3E5F5
+!define DATA_COLOR #FFF3E0
+!define ENUM_COLOR #E8F5E8
+
+title パン・チルトAI追跡カメラ システム クラス図
+
+package "メインアプリケーション" {
+    class PetTrackingApp BUSINESS_COLOR {
+        - tracker: TrackingCoordinator
+        - is_running: bool
+        - logger: Logger
+        + setup_logging(): void
+        + setup_signal_handlers(): void
+        + create_tracker(args): bool
+        + run(args): bool
+        + stop(): void
+        + print_welcome_message(): void
+        + print_hardware_check(): void
+    }
+}
+
+package "統合制御" {
+    class TrackingCoordinator CONTROLLER_COLOR {
+        - camera_id: int
+        - image_width: int
+        - image_height: int
+        - detection_interval: float
+        - status: SystemStatus
+        - is_running: bool
+        - camera: VideoCapture
+        - servo_controller: ServoController
+        - yolo_detector: YOLODetector
+        - simple_p_controller: SimpleProportionalController
+        - main_thread: Thread
+        - lock: Lock
+        
+        + initialize_system(): bool
+        + start_tracking(): void
+        + stop_tracking(): void
+        + get_system_status(): Dict
+        - _main_loop(): void
+        - _process_detection(frame): List[Dict]
+        - _update_tracking_control(detections): void
+        - _execute_scan_pattern(): void
+        - _create_display_frame(frame, detections): ndarray
+        - _update_system_status(detections): void
+        - _cleanup_resources(): void
+    }
+    
+    enum TrackingMode ENUM_COLOR {
+        STANDBY
+        SCANNING  
+        TRACKING
+    }
+    
+    class SystemStatus DATA_COLOR {
+        + mode: TrackingMode
+        + target_detected: bool
+        + target_class: str
+        + target_confidence: float
+        + pan_angle: float
+        + tilt_angle: float
+        + correction_applied: Tuple[float, float]
+        + last_detection_time: datetime
+        + total_detections: int
+        + tracking_duration: float
+    }
+}
+
+package "制御モジュール" {
+    class ServoController CONTROLLER_COLOR {
+        - i2c_address: int
+        - pwm_frequency: int
+        - pan_channel: int
+        - tilt_channel: int
+        - pan_range: Tuple[int, int]
+        - tilt_range: Tuple[int, int]
+        - current_pan_angle: float
+        - current_tilt_angle: float
+        - i2c: I2C
+        - pca: PCA9685
+        - pan_servo: Servo
+        - tilt_servo: Servo
+        
+        + initialize(): bool
+        + set_pan_angle(angle): bool
+        + set_tilt_angle(angle): bool
+        + set_angles(pan_angle, tilt_angle): bool
+        + get_current_angles(): Tuple[float, float]
+        + move_to_center(): bool
+        + test_movement(): bool
+        + is_angle_safe(pan, tilt): bool
+        + emergency_stop(): void
+        + cleanup(): void
+        - _angle_to_pulse_width(angle): int
+        - _validate_angle(angle, axis): bool
+    }
+    
+    class SimpleProportionalController CONTROLLER_COLOR {
+        - image_width: int
+        - image_height: int
+        - image_center: Tuple[int, int]
+        - pan_gain: float
+        - tilt_gain: float
+        - max_correction: float
+        - deadband: float
+        - name: str
+        - state: SimplePState
+        - status: SimplePStatus
+        - performance_history: List[Dict]
+        
+        + calculate_correction(detection_center): Tuple[float, float]
+        + calculate_tracking_error(detection_bbox): Tuple[float, float]
+        + set_gains(pan_gain, tilt_gain): void
+        + set_max_correction(max_correction): void
+        + set_deadband(deadband): void
+        + get_parameters(): Dict
+        + get_state(): Dict
+        + get_performance_statistics(): Dict
+        + reset(): void
+        + cleanup(): void
+    }
+    
+    enum SimplePStatus ENUM_COLOR {
+        UNINITIALIZED
+        READY
+        RUNNING
+        ERROR
+    }
+    
+    class SimplePState DATA_COLOR {
+        + last_error: Tuple[float, float]
+        + last_output: Tuple[float, float]
+        + last_update_time: float
+        + total_corrections: int
+    }
+}
+
+package "検出モジュール" {
+    class YOLODetector CONTROLLER_COLOR {
+        - model_path: str
+        - confidence_threshold: float
+        - target_classes: List[int]
+        - image_size: Tuple[int, int]
+        - model: YOLO
+        - class_names: Dict[int, str]
+        - detection_count: int
+        - total_inference_time: float
+        
+        + load_model(): bool
+        + detect_pets(frame): List[Dict]
+        + get_best_detection(detections): Dict
+        + calculate_center(bbox): Tuple[float, float]
+        + calculate_tracking_error(detection, image_center): Tuple[float, float]
+        + draw_detections(frame, detections): ndarray
+        + get_detection_statistics(): Dict
+        + set_confidence_threshold(threshold): void
+        + cleanup(): void
+        - _filter_target_classes(results): List[Dict]
+        - _format_detection(result): Dict
+    }
+    
+    class Detection DATA_COLOR {
+        + class_id: int
+        + class_name: str
+        + confidence: float
+        + bbox: Tuple[float, float, float, float]
+        + center: Tuple[float, float] = (0.0, 0.0)
+    }
+}
+
+package "例外クラス" {
+    class ServoControllerError ENUM_COLOR {
+    }
+    
+    class YOLODetectorError ENUM_COLOR {
+    }
+    
+    class SimplePError ENUM_COLOR {
+    }
+}
+
+' 関係性の定義
+PetTrackingApp --> TrackingCoordinator : uses
+TrackingCoordinator --> SystemStatus : contains
+TrackingCoordinator --> TrackingMode : uses
+TrackingCoordinator --> ServoController : uses
+TrackingCoordinator --> YOLODetector : uses
+TrackingCoordinator --> SimpleProportionalController : uses
+
+ServoController --> ServoControllerError : throws
+YOLODetector --> YOLODetectorError : throws
+YOLODetector --> Detection : creates
+SimpleProportionalController --> SimplePError : throws
+SimpleProportionalController --> SimplePState : contains
+SimpleProportionalController --> SimplePStatus : uses
+
+' 依存関係
+TrackingCoordinator ..> "cv2" : <<use>>
+ServoController ..> "adafruit_pca9685.PCA9685" : <<use>>
+ServoController ..> "adafruit_motor.servo" : <<use>>
+YOLODetector ..> "ultralytics.YOLO" : <<use>>
+
+note top of PetTrackingApp
+  メインアプリケーションクラス
+  ユーザーインターフェースと
+  システム全体の起動・停止を管理
+end note
+
+note top of TrackingCoordinator
+  システム統合制御クラス
+  各モジュールを統合し
+  追跡システム全体を協調制御
+end note
+
+note top of ServoController
+  サーボモータ制御クラス
+  PCA9685経由でSG90サーボを制御
+  安全範囲チェック付き
+end note
+
+note top of SimpleProportionalController
+  Simple P制御クラス
+  検出位置から角度補正値を
+  比例制御で計算
+end note
+
+note top of YOLODetector
+  物体検出クラス
+  YOLOv8で犬・猫を検出
+  信頼度フィルタリング付き
+end note
+
+@enduml
