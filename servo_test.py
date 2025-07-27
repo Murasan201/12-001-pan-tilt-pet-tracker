@@ -20,6 +20,7 @@
 import time
 import sys
 import signal
+import argparse
 from typing import Optional
 
 try:
@@ -44,13 +45,13 @@ class ServoController:
         self.pan_servo = None
         self.tilt_servo = None
         
-        # サーボ角度の設定（SG90最適化）
+        # サーボ角度の設定（実用範囲最適化）
         self.PAN_CENTER = 90      # パン中央位置
         self.TILT_CENTER = 90     # チルト中央位置
-        self.PAN_MIN = 0          # パン最小角度（フル可動域）
-        self.PAN_MAX = 180        # パン最大角度（フル可動域）
-        self.TILT_MIN = 0         # チルト最小角度（フル可動域テスト用）
-        self.TILT_MAX = 180       # チルト最大角度（フル可動域テスト用）
+        self.PAN_MIN = 10         # パン最小角度（実用範囲）
+        self.PAN_MAX = 170        # パン最大角度（実用範囲）
+        self.TILT_MIN = 20        # チルト最小角度（接触回避）
+        self.TILT_MAX = 160       # チルト最大角度（接触回避）
         
         # 動作パラメータ
         self.MOVE_DELAY = 1.0     # 動作間隔（秒）
@@ -107,9 +108,9 @@ class ServoController:
         パンサーボを指定角度に移動
         
         Args:
-            angle: 移動先角度（0-180度）
+            angle: 移動先角度（10-170度の実用範囲）
         """
-        # 角度の範囲チェック
+        # 角度の範囲チェック（実用範囲）
         angle = max(self.PAN_MIN, min(self.PAN_MAX, angle))
         
         print(f"パン: {angle}度に移動")
@@ -121,9 +122,9 @@ class ServoController:
         チルトサーボを指定角度に移動
         
         Args:
-            angle: 移動先角度（0-180度のフル可動域）
+            angle: 移動先角度（20-160度の安全範囲）
         """
-        # 角度の範囲チェック（フル可動域）
+        # 角度の範囲チェック（実用範囲）
         angle = max(self.TILT_MIN, min(self.TILT_MAX, angle))
         
         print(f"チルト: {angle}度に移動")
@@ -223,6 +224,11 @@ def signal_handler(signum, frame):
 
 def main():
     """メイン関数"""
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(description="サーボテストプログラム - パン・チルト機構動作確認")
+    parser.add_argument('--auto', action='store_true', help='自動実行モード（入力待ちをスキップ）')
+    args = parser.parse_args()
+    
     print("=" * 60)
     print("サーボテストプログラム - パン・チルト機構動作確認")
     print("=" * 60)
@@ -237,12 +243,16 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # ユーザー確認
-    try:
-        response = input("準備が完了したらEnterキーを押してください（中止する場合はCtrl+C）: ")
-    except KeyboardInterrupt:
-        print("\nテストが中止されました")
-        return
+    # ユーザー確認（自動実行モードでない場合のみ）
+    if not args.auto:
+        try:
+            response = input("準備が完了したらEnterキーを押してください（中止する場合はCtrl+C）: ")
+        except KeyboardInterrupt:
+            print("\nテストが中止されました")
+            return
+    else:
+        print("自動実行モードで開始します...")
+        time.sleep(1)
     
     global controller
     controller = ServoController()
@@ -253,8 +263,8 @@ def main():
             print("初期化に失敗しました。ハードウェア接続を確認してください。")
             return
         
-        print("\nSG90サーボ最適化テスト開始...")
-        print("注意: フル可動域（0-180度）でテストします")
+        print("\nSG90サーボ実用範囲テスト開始...")
+        print("注意: パン（10-170度）、チルト（20-160度）でテストします")
         time.sleep(1)
         
         # パン動作テスト
