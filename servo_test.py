@@ -44,13 +44,13 @@ class ServoController:
         self.pan_servo = None
         self.tilt_servo = None
         
-        # サーボ角度の設定
+        # サーボ角度の設定（SG90最適化）
         self.PAN_CENTER = 90      # パン中央位置
         self.TILT_CENTER = 90     # チルト中央位置
-        self.PAN_MIN = 0          # パン最小角度
-        self.PAN_MAX = 180        # パン最大角度
-        self.TILT_MIN = 45        # チルト最小角度（安全範囲）
-        self.TILT_MAX = 135       # チルト最大角度（安全範囲）
+        self.PAN_MIN = 0          # パン最小角度（フル可動域）
+        self.PAN_MAX = 180        # パン最大角度（フル可動域）
+        self.TILT_MIN = 0         # チルト最小角度（フル可動域テスト用）
+        self.TILT_MAX = 180       # チルト最大角度（フル可動域テスト用）
         
         # 動作パラメータ
         self.MOVE_DELAY = 1.0     # 動作間隔（秒）
@@ -73,10 +73,21 @@ class ServoController:
             self.pca = PCA9685(self.i2c)
             self.pca.frequency = 50  # 50Hz（サーボ標準周波数）
             
-            # サーボモータの初期化
+            # サーボモータの初期化（SG90用に最適化）
             # チャンネル0: パンサーボ、チャンネル1: チルトサーボ
-            self.pan_servo = servo.Servo(self.pca.channels[0])
-            self.tilt_servo = servo.Servo(self.pca.channels[1])
+            # SG90サーボ用パルス幅設定: 一般的な範囲 500-2400μs
+            self.pan_servo = servo.Servo(
+                self.pca.channels[0], 
+                min_pulse=500, 
+                max_pulse=2400,
+                actuation_range=180
+            )
+            self.tilt_servo = servo.Servo(
+                self.pca.channels[1], 
+                min_pulse=500, 
+                max_pulse=2400,
+                actuation_range=180
+            )
             
             # 中央位置に移動
             print("サーボを中央位置に設定中...")
@@ -110,9 +121,9 @@ class ServoController:
         チルトサーボを指定角度に移動
         
         Args:
-            angle: 移動先角度（45-135度の安全範囲）
+            angle: 移動先角度（0-180度のフル可動域）
         """
-        # 角度の範囲チェック（安全範囲内）
+        # 角度の範囲チェック（フル可動域）
         angle = max(self.TILT_MIN, min(self.TILT_MAX, angle))
         
         print(f"チルト: {angle}度に移動")
@@ -242,7 +253,8 @@ def main():
             print("初期化に失敗しました。ハードウェア接続を確認してください。")
             return
         
-        print("\nテスト開始...")
+        print("\nSG90サーボ最適化テスト開始...")
+        print("注意: フル可動域（0-180度）でテストします")
         time.sleep(1)
         
         # パン動作テスト

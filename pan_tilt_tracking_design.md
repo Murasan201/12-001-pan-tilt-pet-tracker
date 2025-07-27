@@ -2,7 +2,8 @@
 
 ## 文書番号: 12-001-DESIGN-001
 ## 作成日: 2025-07-22
-## バージョン: 1.0
+## バージョン: 3.0
+## 更新内容: Hailo-8L対応デュアル検出システム追加
 
 ---
 
@@ -13,8 +14,10 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 
 ### 1.2 設計方針
 - 既存の実装済みコンポーネント（`servo_test.py`, `camera_detection_test.py`）を最大限活用
+- **デュアル検出システム**: CPU版（学習用）とHailo-8L版（実用版）の両対応
 - Simple P制御による分かりやすい追跡制御
 - 初心者にも理解しやすいシンプルなアーキテクチャ
+- **段階的学習**: 基礎理解から実践運用への自然な移行
 - 安定性と教育効果を重視した設計
 
 ---
@@ -27,7 +30,7 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 │                    メインプロセス                            │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
 │  │  カメラ入力      │  │   YOLO検出      │  │ トラッキング │ │
-│  │  モジュール     │→│   モジュール    │→│  制御モジュール│ │
+│  │  モジュール     │→│ (CPU/Hailo選択) │→│  制御モジュール│ │
 │  └─────────────────┘  └─────────────────┘  └──────────────┘ │
 │                                                ↓             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
@@ -44,10 +47,22 @@ YOLOv8による犬猫検出機能と既存のサーボテストプログラム�
 - 各モジュール間のデータフロー管理
 - エラーハンドリングとリソース管理
 
-#### 2.2.2 カメラ検出モジュール (`CameraDetector`)
-- 既存の`camera_detection_test.py`をベースとして活用
-- YOLOv8による犬猫検出機能
-- バウンディングボックス情報の提供
+#### 2.2.2 デュアル検出システム
+
+**CPU版検出モジュール (`YOLODetector`)**
+- PyTorch/Ultralyticsによる汎用的な推論
+- 学習・プロトタイピング・デバッグ用途
+- 1-3 FPS での安定動作
+
+**Hailo-8L版検出モジュール (`HailoYOLODetector`)**  
+- Raspberry Pi AI Kit による高速推論
+- GStreamerパイプラインでのリアルタイム処理
+- 30-60 FPS での高性能動作
+
+**検出器ファクトリー (`DetectorFactory`)**
+- 環境自動判定による最適検出器選択
+- 統一インターフェースでの透明な切り替え
+- 性能比較情報の提供
 
 #### 2.2.3 サーボ制御モジュール (`ServoController`)
 - 既存の`servo_test.py`の機能を統合
@@ -247,19 +262,24 @@ def control_to_angle(control_output, max_angle=90):
 ```
 modules/
 ├── __init__.py
-├── servo_controller.py      # サーボ制御モジュール
-├── yolo_detector.py         # YOLO検出モジュール  
-├── pid_controller.py        # PID制御モジュール
-└── tracking_coordinator.py  # 全体調整モジュール
+├── servo_controller.py         # サーボ制御モジュール
+├── yolo_detector.py            # CPU版YOLO検出モジュール
+├── yolo_detector_hailo.py      # Hailo-8L版YOLO検出モジュール
+├── detector_factory.py         # 検出器ファクトリー
+├── simple_p_controller.py      # Simple P制御モジュール
+└── tracking_coordinator.py     # 全体調整モジュール
 
 tests/
 ├── __init__.py
-├── test_servo_controller.py # サーボ制御テスト
-├── test_yolo_detector.py    # YOLO検出テスト
-├── test_pid_controller.py   # PID制御テスト
-└── integration_test.py      # 統合テスト
+├── test_servo_controller.py    # サーボ制御テスト
+├── test_yolo_detector.py       # CPU版YOLO検出テスト
+├── test_detector_factory.py    # 検出器ファクトリーテスト
+├── test_simple_p_controller.py # Simple P制御テスト
+├── test_tracking_coordinator.py # 統合制御テスト
+└── integration_test.py         # 統合テスト
 
-main.py                      # メインアプリケーション
+main.py                         # メインアプリケーション
+example_hailo_usage.py          # Hailo-8L使用例・性能比較デモ
 ```
 
 ### 4.2 ServoController クラス仕様
@@ -325,10 +345,52 @@ def cleanup(self) -> None:
     """リソース解放"""
 ```
 
-#### 4.2.4 エラーハンドリング
+#### 4.2.4 サーボ安全範囲とパラメータ設定
+
+**SG90サーボモーター仕様:**
+- **物理可動域**: 0° - 180°（理論値）
+- **推奨パルス幅**: 500μs - 2400μs
+- **PWM周波数**: 50Hz
+
+**安全範囲設定の考慮事項:**
+
+| 用途 | パン範囲 | チルト範囲 | 目的 |
+|------|----------|------------|------|
+| **テスト用** | 0° - 180° | 0° - 180° | サーボ性能確認・パラメータ検証 |
+| **実用設定** | -90° - 90° | 30° - 150° | 機械的安全性・ケーブル保護 |
+| **保守設定** | -45° - 45° | 45° - 135° | 初心者向け・最大安全性 |
+
+**パラメータ設定例:**
+
+```python
+# SG90最適化設定（テスト用）
+servo.Servo(
+    pca.channels[0], 
+    min_pulse=500,      # SG90推奨最小パルス
+    max_pulse=2400,     # SG90推奨最大パルス
+    actuation_range=180 # フル可動域
+)
+
+# 実用設定（安全重視）
+servo.Servo(
+    pca.channels[0], 
+    min_pulse=600,      # 保守的最小パルス
+    max_pulse=2300,     # 保守的最大パルス
+    actuation_range=160 # 安全マージン付き
+)
+```
+
+**設定変更時の注意事項:**
+1. **段階的テスト**: 小範囲→中範囲→フル範囲の順でテスト
+2. **物理的確認**: カメラマウント、ケーブル、周囲障害物の確認
+3. **機械的制限**: 実際のハードウェア構成に合わせた制限値設定
+4. **安全復帰**: テスト後は実用安全範囲への設定復帰
+
+#### 4.2.5 エラーハンドリング
 - 角度範囲外指定時の例外処理
 - I2C通信エラーの検出・再試行
 - サーボ応答異常の検出
+- 安全範囲外動作の防止
 
 ### 4.3 YOLODetector クラス仕様
 
@@ -614,9 +676,21 @@ def test_deadband_functionality()      # 不感帯機能テスト
 - **安定性**: 静止対象で振動幅±1度以内
 
 ### 6.3 安全要件
-- **動作範囲制限**: Pan ±90°, Tilt ±45°
+
+#### 6.3.1 動作範囲制限
+**運用環境別の推奨設定:**
+
+| 環境 | パン範囲 | チルト範囲 | 適用場面 |
+|------|----------|------------|----------|
+| **テスト環境** | 0° - 180° | 0° - 180° | サーボ性能確認、パラメータ調整時 |
+| **開発環境** | -90° - 90° | 30° - 150° | 開発・デバッグ時の実用設定 |
+| **本番環境** | -45° - 45° | 45° - 135° | 実際の運用時の安全設定 |
+
+#### 6.3.2 その他安全要件
 - **速度制限**: 最大角速度 30°/秒
 - **緊急停止**: 異常検出時の安全停止
+- **段階的テスト**: 可動域拡張時の段階的確認
+- **物理的安全確認**: カメラマウント・ケーブル干渉チェック
 
 ---
 
@@ -667,9 +741,144 @@ def test_deadband_functionality()      # 不感帯機能テスト
 
 ---
 
-## 9. リスクと対策
+## 9. 依存関係・ライブラリ仕様
 
-### 9.1 技術的リスク
+### 9.1 Adafruit Servo HAT ライブラリ要件
+
+#### 9.1.1 対象ハードウェア
+- **製品名**: Adafruit 16-Channel PWM/Servo HAT
+- **SKU**: 2327
+- **チップ**: PCA9685 PWMコントローラー
+- **URL**: https://www.adafruit.com/product/2327
+
+#### 9.1.2 推奨ライブラリ（2025年現在）
+
+**選択肢1: PCA9685 + Motor（現在採用）**
+```bash
+# インストール
+pip3 install adafruit-circuitpython-pca9685
+pip3 install adafruit-circuitpython-motor
+
+# 使用例
+import board
+import busio
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo
+```
+
+**選択肢2: ServoKit（シンプル版）**
+```bash
+# インストール
+pip3 install adafruit-circuitpython-servokit
+
+# 使用例
+from adafruit_servokit import ServoKit
+kit = ServoKit(channels=16)
+kit.servo[0].angle = 90
+```
+
+#### 9.1.3 ライブラリ選定理由
+
+**PCA9685 + Motor を採用**
+- ✅ **教育効果**: 制御の詳細が理解できる
+- ✅ **拡張性**: PID制御等の高度な機能への発展が容易
+- ✅ **デバッグ性**: トラブルシューティングが簡単
+- ✅ **カスタマイズ性**: 細かい制御パラメータの調整が可能
+
+**ServoKit との比較**
+| 項目 | PCA9685 + Motor | ServoKit |
+|------|-----------------|----------|
+| 学習効果 | 高（制御理論の理解） | 低（ブラックボックス） |
+| 実装複雑度 | 中（適度な複雑さ） | 低（1行でサーボ制御） |
+| カスタマイズ性 | 高（詳細制御可能） | 低（固定API） |
+| デバッグ性 | 高（段階的確認可能） | 低（内部処理が不明） |
+
+#### 9.1.4 非推奨ライブラリ
+
+**Adafruit_Python_PCA9685（廃止予定）**
+- ❌ **ステータス**: アーカイブ済み・非推奨
+- ❌ **理由**: CircuitPython移行により保守終了
+- ❌ **URL**: https://github.com/adafruit/Adafruit_Python_PCA9685
+
+### 9.2 その他の主要依存関係
+
+#### 9.2.1 AI・画像処理ライブラリ
+```bash
+# YOLOv8 物体検出
+pip3 install ultralytics
+
+# OpenCV 画像処理
+pip3 install opencv-python
+
+# NumPy 数値計算
+pip3 install numpy
+```
+
+#### 9.2.2 通信・設定管理ライブラリ
+```bash
+# Slack通知
+pip3 install requests
+
+# 環境変数管理
+pip3 install python-dotenv
+```
+
+#### 9.2.3 システム依存ライブラリ
+```bash
+# CircuitPython基盤（Raspberry Pi専用）
+pip3 install adafruit-blinka
+```
+
+### 9.3 バージョン管理・互換性
+
+#### 9.3.1 推奨バージョン
+- **Python**: 3.9以上
+- **adafruit-circuitpython-pca9685**: 最新版
+- **adafruit-circuitpython-motor**: 最新版
+- **ultralytics**: 最新版
+
+#### 9.3.2 互換性マトリックス
+| OS | Python Ver | PCA9685 Lib | 動作確認 |
+|----|------------|-------------|----------|
+| Raspberry Pi OS | 3.9+ | 3.x | ✅ |
+| Ubuntu 22.04 | 3.10+ | 3.x | ✅ |
+| Windows 10/11 | 3.9+ | 3.x | ❌ (I2C未サポート) |
+
+### 9.4 インストール手順
+
+#### 9.4.1 仮想環境での推奨インストール
+```bash
+# 仮想環境作成
+python3 -m venv venv
+source venv/bin/activate
+
+# 基本ライブラリ
+pip install adafruit-circuitpython-pca9685
+pip install adafruit-circuitpython-motor
+pip install ultralytics
+pip install opencv-python
+pip install requests
+pip install python-dotenv
+
+# システム設定（Raspberry Pi）
+sudo raspi-config  # I2C有効化
+```
+
+#### 9.4.2 動作確認コマンド
+```bash
+# ライブラリ確認
+python3 -c "import adafruit_pca9685; print('PCA9685 OK')"
+python3 -c "import adafruit_motor; print('Motor OK')"
+
+# ハードウェア確認
+sudo i2cdetect -y 1  # I2C デバイス確認
+```
+
+---
+
+## 10. リスクと対策
+
+### 10.1 技術的リスク
 
 | リスク | 影響度 | 発生確率 | 対策 |
 |--------|--------|----------|------|
@@ -678,7 +887,7 @@ def test_deadband_functionality()      # 不感帯機能テスト
 | サーボ精度不足 | 中 | 低 | キャリブレーション、フィードバック制御 |
 | 検出精度不安定 | 中 | 中 | 複数フレーム判定、信頼度フィルタリング |
 
-### 9.2 運用リスク
+### 10.2 運用リスク
 
 | リスク | 影響度 | 発生確率 | 対策 |
 |--------|--------|----------|------|
@@ -688,34 +897,37 @@ def test_deadband_functionality()      # 不感帯機能テスト
 
 ---
 
-## 10. 参考文献・調査結果
+## 11. 参考文献・調査結果
 
-### 10.1 学術論文
+### 11.1 学術論文
 - "Predictive tracking of an object by a pan–tilt camera of a robot" (Nonlinear Dynamics, 2023)
 - "Design and implementation of Pan-Tilt control for face tracking" (IEEE, 2017)
 
-### 10.2 実装参考事例
+### 11.2 実装参考事例
 - PyImageSearch: "Pan/tilt face tracking with a Raspberry Pi and OpenCV"
 - GitHub: face-track-demo (Raspberry Pi PiCamera, OpenCV Face and Motion Tracking)
 - Technology Tutorials: "Using a Pan/Tilt Camera Servo to Track an Object"
 
-### 10.3 技術資料
+### 11.3 技術資料
 - Adafruit PCA9685 16-Channel Servo Driver documentation
 - YOLOv8 Ultralytics documentation
 - OpenCV camera calibration and servo control examples
 
 ---
 
-## 11. 変更履歴
+## 12. 変更履歴
 
 | バージョン | 日付 | 変更内容 | 変更者 |
 |------------|------|----------|--------|
 | 1.0 | 2025-07-22 | 初版作成 | Claude |
 | 1.1 | 2025-07-22 | モジュール詳細仕様を追加 | Claude |
+| 3.0 | 2025-01-21 | Hailo-8L対応デュアル検出システム追加、性能比較表作成 | Claude |
+| 3.1 | 2025-07-26 | 依存関係・ライブラリ仕様セクション追加、Adafruit Servo HATライブラリ調査結果反映 | Claude |
+| 3.2 | 2025-07-26 | サーボ安全範囲とパラメータ設定仕様追加、運用環境別設定ガイド追加 | Claude |
 
 ---
 
-## 12. 承認
+## 13. 承認
 
 | 役割 | 氏名 | 署名 | 日付 |
 |------|------|------|------|

@@ -1,0 +1,61 @@
+# パン・チルトAI追跡カメラアプリ - 依存関係リスト
+# 
+# プロジェクト: 12-001-pan-tilt-pet-tracker
+# 作成日: 2025-07-26
+# 
+# インストール方法:
+# pip install -r requirements.txt
+
+# ===== コアライブラリ =====
+
+# AI・画像処理
+ultralytics>=8.0.0                    # YOLOv8 物体検出
+opencv-python>=4.8.0                  # OpenCV 画像処理・カメラ制御
+numpy>=1.24.0                         # 数値計算
+
+# Adafruit Servo HAT制御（PCA9685）
+adafruit-circuitpython-pca9685>=3.4.0 # PCA9685 PWMサーボドライバ
+adafruit-circuitpython-motor>=3.4.0   # サーボモータ制御
+adafruit-blinka>=8.0.0                # CircuitPython基盤（Raspberry Pi）
+
+# 通信・設定管理
+requests>=2.31.0                      # HTTP通信（Slack通知用）
+python-dotenv>=1.0.0                  # 環境変数管理
+
+# ===== 開発・テスト用ライブラリ =====
+
+# テスト
+pytest>=7.4.0                         # テストフレームワーク
+pytest-cov>=4.1.0                     # カバレッジ測定
+
+# コード品質
+black>=23.0.0                         # コードフォーマッター
+flake8>=6.0.0                         # 静的解析
+isort>=5.12.0                         # import文ソート
+
+# ===== オプションライブラリ =====
+
+# Hailo-8L AI Kit用（オプション）
+# 注意: Raspberry Pi AI Kit使用時のみ必要
+# gi>=1.0.0                           # GObject Introspection（GStreamer用）
+
+# ===== システム依存関係 =====
+
+# 以下は手動インストールが必要:
+# 
+# Raspberry Pi OS:
+# sudo apt update
+# sudo apt install -y python3-pip python3-venv
+# sudo apt install -y i2c-tools
+# sudo raspi-config  # I2C有効化
+# 
+# GStreamer（Hailo使用時）:
+# sudo apt install -y gstreamer1.0-tools gstreamer1.0-plugins-base
+# sudo apt install -y gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+# sudo apt install -y python3-gi python3-gi-cairo gir1.2-gstreamer-1.0
+
+# ===== バージョン互換性情報 =====
+
+# Python: 3.9以上推奨
+# OS: Raspberry Pi OS, Ubuntu 22.04+
+# ハードウェア: Raspberry Pi 4/5, Adafruit Servo HAT (SKU: 2327)
