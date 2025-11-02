@@ -79,12 +79,12 @@ class TrackingCoordinator:
         追跡統合制御システム初期化
         
         Args:
-            camera_id: カメラID（通常は0）
-            image_width: 処理する画像の幅
-            image_height: 処理する画像の高さ
-            detection_interval: 検出処理の間隔（秒）
-            lost_target_timeout: 対象ロスト判定時間（秒）
-            show_display: 画面表示の有無
+            camera_id (int): カメラID（通常は0、複数カメラ使用時は1以上）
+            image_width (int): 処理する画像の幅（ピクセル、推奨: 640）
+            image_height (int): 処理する画像の高さ（ピクセル、推奨: 480）
+            detection_interval (float): 検出処理の間隔（秒、小さいほど高速）
+            lost_target_timeout (float): 対象ロスト判定時間（秒、スキャンモード移行まで）
+            show_display (bool): 画面表示の有無（Headlessモード対応）
         """
         # 基本設定
         self.camera_id = camera_id

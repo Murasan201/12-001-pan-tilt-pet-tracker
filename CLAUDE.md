@@ -16,12 +16,20 @@
 - **言語**: Python 3.9以上
 - **コーディングスタイル**: PEP8準拠
 - **ライブラリ**: ultralytics（YOLOv8）、adafruit-circuitpython-pca9685（Servo Driver制御）、opencv-python（映像入力・描画）、requests（Slack Webhook通知）、python-dotenv（環境変数管理）
-- **コメント規約**: 
+- **コメント規約**:
+  - `COMMENT_STYLE_GUIDE.md` に従う
   - 日本語でわかりやすくコメントを記入する
   - コードの可読性を損なわない程度に適切な量で記載
   - 複雑な処理や重要な判定部分には必ずコメントを追加
   - 関数・クラスの目的と動作を簡潔に説明
   - 初心者向け教材として理解しやすい説明を心がける
+- **Pythonコーディング規約**:
+  - `python_coding_guidelines.md` に従う
+  - PEP 8準拠（4スペースインデント、命名規則など）
+  - `if __name__ == "__main__":` を実行可能ファイルに必須記載
+  - グローバルなコード実行は関数内に移動
+  - 全関数・クラスに docstring を記載
+  - try-finally でリソースのクリーンアップを確実に実行
 - **関数分割**: 機能ごとに適切に分割
 - **エラーハンドリング**: 必須実装
 
@@ -30,8 +38,8 @@
 - **ドキュメント**: `README.md`（英語で記載）
 - **依存関係**: `requirements.txt`
 - **ライセンス**: `LICENSE`
-- **要件定義**: `12-001_パン・チルトAI追跡カメラアプリ_要件定義書.md`
-- **設計書**: `pan_tilt_tracking_design.md`
+- **要件定義**: `docs/12-001_パン・チルトAI追跡カメラアプリ_要件定義書.md`
+- **設計書**: `docs/pan_tilt_tracking_design.md`
 
 ### セキュリティルール
 - **権限**: 最小権限の原則
@@ -111,5 +119,7 @@ flake8 *.py modules/ tests/
 ```
 
 ---
-最終更新: 2025-07-26
+最終更新: 2025-11-02
 文書番号: 12-001
+変更履歴:
+  - 2025-11-02: COMMENT_STYLE_GUIDE.md と python_coding_guidelines.md を参照するように更新

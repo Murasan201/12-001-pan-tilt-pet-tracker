@@ -69,12 +69,12 @@ class ServoController:
         サーボコントローラー初期化
         
         Args:
-            i2c_address: PCA9685のI2Cアドレス
-            pwm_frequency: PWM周波数（Hz）
-            pan_channel: パンサーボのチャンネル番号
-            tilt_channel: チルトサーボのチャンネル番号
-            pan_range: パン動作範囲（度） -90°から+90°
-            tilt_range: チルト動作範囲（度） -45°から+45°
+            i2c_address (int): PCA9685のI2Cアドレス（16進数、デフォルト: 0x40）
+            pwm_frequency (int): PWM周波数（Hz、サーボ標準: 50Hz）
+            pan_channel (int): パンサーボのチャンネル番号（PCA9685の0〜15）
+            tilt_channel (int): チルトサーボのチャンネル番号（PCA9685の0〜15）
+            pan_range (Tuple[float, float]): パン動作範囲（度、-90°から+90°）
+            tilt_range (Tuple[float, float]): チルト動作範囲（度、-45°から+45°）
         """
         # ハードウェア設定
         self.i2c_address = i2c_address

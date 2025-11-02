@@ -59,7 +59,13 @@ class PetTrackingApp:
     """
     
     def __init__(self):
-        """アプリケーション初期化"""
+        """
+        アプリケーション初期化
+        
+        内部で以下の処理を実行します:
+        - ログシステムのセットアップ
+        - シグナルハンドラの登録（Ctrl+C対応）
+        """
         self.tracker = None
         self.is_running = False
         
@@ -277,7 +283,12 @@ class PetTrackingApp:
 
 
 def parse_arguments():
-    """コマンドライン引数解析"""
+    """
+    コマンドライン引数解析
+    
+    Returns:
+        argparse.Namespace: 解析された引数を含むオブジェクト
+    """
     parser = argparse.ArgumentParser(
         description="パン・チルトAI追跡カメラアプリ",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -320,7 +331,15 @@ def parse_arguments():
 
 
 def main():
-    """メイン関数"""
+    """
+    メイン関数：アプリケーション実行エントリーポイント
+    
+    以下の処理を順序に実行します:
+    1. コマンドライン引数を解析
+    2. ログレベルを設定
+    3. PetTrackingAppインスタンスを作成
+    4. アプリケーション実行
+    """
     # コマンドライン引数解析
     args = parse_arguments()
     
